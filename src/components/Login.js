@@ -6,18 +6,25 @@ export default function Login({ onLogin }) {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    const res = await fetch("http://localhost:4000/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
+    const apiBase = process.env.REACT_APP_API_URL;
 
-    if (res.ok) {
-      const { token } = await res.json();
-      localStorage.setItem("authToken", token);
-      onLogin();
-    } else {
-      alert("Invalid password");
+    try {
+      const res = await fetch(`${apiBase}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      if (res.ok) {
+        const { token } = await res.json();
+        localStorage.setItem("authToken", token);
+        onLogin();
+      } else {
+        alert("Invalid password");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("An error occurred. Please try again.");
     }
   };
 
