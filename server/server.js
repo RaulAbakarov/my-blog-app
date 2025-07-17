@@ -1,148 +1,78 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
 const cors = require("cors");
+const fs = require("fs");
 const jwt = require("jsonwebtoken");
-const dotenv = require("dotenv");
-
-dotenv.config();
+const path = require("path");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-
-const BLOG_FILE = path.join(__dirname, "blogs.json");
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-if (!JWT_SECRET || !ADMIN_PASSWORD) {
-  console.error("Error: JWT_SECRET and ADMIN_PASSWORD must be set in environment variables.");
-  process.exit(1);
-}
+const SECRET_KEY = process.env.JWT_SECRET || "secret";
+const PASSWORD = process.env.ADMIN_PASSWORD || "admin";
 
 app.use(cors());
 app.use(express.json());
 
-// Helper to safely read blog file
+const blogsPath = path.join(__dirname, "blogs.json");
+
 function readBlogs() {
-  try {
-    const data = fs.readFileSync(BLOG_FILE, "utf-8");
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
+  if (!fs.existsSync(blogsPath)) return [];
+  const data = fs.readFileSync(blogsPath);
+  return JSON.parse(data);
 }
 
-// Helper to write blog file
 function writeBlogs(blogs) {
-  fs.writeFileSync(BLOG_FILE, JSON.stringify(blogs, null, 2));
+  fs.writeFileSync(blogsPath, JSON.stringify(blogs, null, 2));
 }
 
-// Admin login route
 app.post("/login", (req, res) => {
   const { password } = req.body;
-
-  if (!password || password !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: "Unauthorized" });
+  if (password === PASSWORD) {
+    const token = jwt.sign({ user: "admin" }, SECRET_KEY, { expiresIn: "2h" });
+    return res.json({ token });
   }
-
-  const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "2h" });
-  res.json({ token });
+  res.status(401).json({ message: "Invalid password" });
 });
 
-// Middleware to protect routes
-function authenticateToken(req, res, next) {
+function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Token required" });
+  if (!authHeader) return res.sendStatus(401);
+  const token = authHeader.split(" ")[1];
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: "Invalid token" });
-    req.user = user;
+  jwt.verify(token, SECRET_KEY, (err) => {
+    if (err) return res.sendStatus(403);
     next();
   });
 }
 
-// GET all blogs (public)
 app.get("/blogs", (req, res) => {
   const blogs = readBlogs();
   res.json(blogs);
 });
 
-// POST new blog (protected)
-app.post("/blogs", authenticateToken, (req, res) => {
-  const { title, content, imageUrl, amazonLink } = req.body;
-
-  if (!title || !content) {
-    return res.status(400).json({ error: "Title and content are required" });
-  }
-
-  const newBlog = {
-    title,
-    content,
-    imageUrl: imageUrl || "",
-    amazonLink: amazonLink || "",
-    date: new Date().toLocaleString(),
-  };
-
+app.post("/blogs", authenticate, (req, res) => {
   const blogs = readBlogs();
-  blogs.unshift(newBlog);
+  blogs.unshift(req.body);
   writeBlogs(blogs);
-
-  res.status(201).json({ success: true, blog: newBlog });
+  res.status(201).json({ message: "Blog added" });
 });
 
-// PUT /blogs/:title (protected)
-app.put("/blogs/:title", authenticateToken, (req, res) => {
-  const originalTitle = decodeURIComponent(req.params.title);
-  const { title, content, imageUrl, amazonLink } = req.body;
-
-  if (!title || !content) {
-    return res.status(400).json({ error: "Title and content are required" });
-  }
-
-  let blogs = readBlogs();
-
-  let updated = false;
-
-  blogs = blogs.map((b) => {
-    if (b.title === originalTitle) {
-      updated = true;
-      return {
-        ...b,
-        title,
-        content,
-        imageUrl: imageUrl || "",
-        amazonLink: amazonLink || "",
-        date: new Date().toLocaleString(),
-      };
-    }
-    return b;
-  });
-
-  if (!updated) {
-    return res.status(404).json({ error: "Blog not found" });
-  }
-
+app.put("/blogs/:title", authenticate, (req, res) => {
+  const blogs = readBlogs();
+  const index = blogs.findIndex((b) => b.title === req.params.title);
+  if (index === -1) return res.sendStatus(404);
+  blogs[index] = req.body;
   writeBlogs(blogs);
-  res.json({ success: true });
+  res.json({ message: "Blog updated" });
 });
 
-// DELETE /blogs/:title (protected)
-app.delete("/blogs/:title", authenticateToken, (req, res) => {
-  const title = decodeURIComponent(req.params.title);
+app.delete("/blogs/:title", authenticate, (req, res) => {
   const blogs = readBlogs();
-
-  const filteredBlogs = blogs.filter((b) => b.title !== title);
-
-  if (filteredBlogs.length === blogs.length) {
-    return res.status(404).json({ error: "Blog not found" });
-  }
-
-  writeBlogs(filteredBlogs);
-  res.json({ success: true });
+  const updated = blogs.filter((b) => b.title !== req.params.title);
+  writeBlogs(updated);
+  res.json({ message: "Blog deleted" });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

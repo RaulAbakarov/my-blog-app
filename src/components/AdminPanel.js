@@ -1,3 +1,4 @@
+// src/components/AdminPanel.js
 import React, { useState, useEffect } from "react";
 import BlogForm from "./BlogForm";
 
@@ -7,9 +8,11 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem("authToken");
 
+  const apiBase = process.env.REACT_APP_API_URL;
+
   const fetchBlogs = async () => {
     try {
-      const res = await fetch("http://localhost:4000/blogs");
+      const res = await fetch(`${apiBase}/blogs`);
       const data = await res.json();
       setBlogs(data);
     } catch (error) {
@@ -24,7 +27,7 @@ export default function AdminPanel() {
   const handleAddBlog = async (newBlog) => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:4000/blogs", {
+      const res = await fetch(`${apiBase}/blogs`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -49,7 +52,7 @@ export default function AdminPanel() {
 
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/blogs/${encodeURIComponent(title)}`, {
+      const res = await fetch(`${apiBase}/blogs/${encodeURIComponent(title)}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -74,7 +77,7 @@ export default function AdminPanel() {
   const handleUpdateBlog = async (updatedBlog) => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/blogs/${encodeURIComponent(editingBlog.title)}`, {
+      const res = await fetch(`${apiBase}/blogs/${encodeURIComponent(editingBlog.title)}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

@@ -1,12 +1,23 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "./BlogCard.css";
+
+const API_URL = process.env.REACT_APP_API_URL;
 
 function slugify(text) {
   return encodeURIComponent(text.toLowerCase().replace(/\s+/g, "-"));
 }
 
-export default function BlogList({ blogs }) {
+export default function BlogList() {
+  const [blogs, setBlogs] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/blogs`)
+      .then((res) => res.json())
+      .then((data) => setBlogs(data))
+      .catch((err) => console.error("Failed to fetch blogs:", err));
+  }, []);
+
   const latestBlogs = blogs.slice(0, 3);
 
   return (
