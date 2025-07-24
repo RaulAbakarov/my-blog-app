@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "id": 1,
+    "title": "Example Blog Title",
+    "image": "https://example.com/image.jpg",
+    "date": "2025-07-24",
+    "content": "Full content of your blog post here...",
+    "preview": "Short preview or summary...",
+    "category": "Tech"
+  }
+]
